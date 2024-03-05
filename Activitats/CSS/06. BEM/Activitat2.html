@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Comentarios</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        #comments-container {
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        .comment {
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            padding: 10px;
+        }
+
+        .comment-author {
+            font-weight: bold;
+        }
+
+        .comment-time {
+            font-style: italic;
+            font-size: 0.8em;
+            color: #555;
+        }
+
+        .comment-text {
+            margin-top: 5px;
+        }
+
+        .comment-form {
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        .comment-form textarea {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .comment-form input[type="submit"] {
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="comments-container">
+        <div class="comment">
+            <div class="comment-author">Usuario1</div>
+            <div class="comment-time">Hace 2 horas</div>
+            <div class="comment-text">¡Esto es un comentario muy interesante!</div>
+        </div>
+    </div>
+
+    <div class="comment-form">
+        <h2>Deja un comentario</h2>
+        <form action="#" method="post">
+            <textarea name="comment" placeholder="Escribe tu comentario"></textarea>
+            <br>
+            <input type="submit" value="Publicar comentario">
+        </form>
+    </div>
+
+</body>
+</html>

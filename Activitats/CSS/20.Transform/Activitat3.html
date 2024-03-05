@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Círculos con Mezcla de Colores</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            text-align: center;
+            margin: 20px;
+        }
+
+        .circle-container {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .red-circle {
+            background-color: red;
+        }
+
+        .blue-circle {
+            background-color: rgba(0, 0, 255, 0.5);
+        }
+
+        .blue-circle:hover {
+            transform: translateX(-50px); 
+        }
+    </style>
+</head>
+<body>
+    <div class="circle-container">
+        <div class="circle red-circle"></div>
+        <div class="circle blue-circle"></div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+    <h1>Buscador de Smartphones</h1>
+    
+    <form id="searchForm">
+        <label for="brand">Marca:</label>
+        <input type="text" id="brand" placeholder="Escribe la marca">
+    
+        <label for="priceRange">Rango de Precios:</label>
+        <select id="priceRange">
+            <option value="0-200">0 - 200 euros</option>
+            <option value="201-400">201 - 400 euros</option>
+            <option value="401-600">401 - 600 euros</option>
+            <option value="601-800">601 - 800 euros</option>
+            <option value="801+">Más de 800 euros</option>
+        </select>
+    
+        <button type="button" onclick="searchSmartphones()">Buscar</button>
+    </form>
+    
+    <script>    
+        function searchSmartphones() {
+            var brand = document.getElementById('brand').value;
+            var priceRange = document.getElementById('priceRange').value;
+    
+            console.log("Búsqueda: Marca - " + brand + ", Rango de Precios - " + priceRange);
+        }
+    </script>
+    

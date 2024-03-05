@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imagen con Filtro de Escala de Grises</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            margin: 20px;
+            text-align: center;
+        }
+
+        .image-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .grayscale-filter {
+            filter: grayscale(100%);
+            transition: filter 0.3s ease-in-out;
+        }
+
+        .image-container:hover .grayscale-filter {
+            filter: grayscale(0%);
+        }
+    </style>
+</head>
+<body>
+    <div class="image-container">
+        <img src="tu_imagen.jpg" alt="Imagen" class="grayscale-filter">
+    </div>
+</body>
+</html>

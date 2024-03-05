@@ -1,0 +1,26 @@
+
+<h1>Buscar Cámaras de Fotos</h1>
+
+<form action="#" method="get">
+    <label for="marca">Marca:</label>
+    <input type="text" id="marca" name="marca">
+
+    <label for="modelo">Modelo:</label>
+    <input type="text" id="modelo" name="modelo">
+
+    <label for="resolucion">Resolución:</label>
+    <input type="number" id="resolucion" name="resolucion" min="1">
+
+    <label for="tipo">Tipo:</label>
+    <select id="tipo" name="tipo">
+        <option value="">Seleccionar</option>
+        <option value="compacta">Compacta</option>
+        <option value="mirrorless">Mirrorless</option>
+        <option value="reflex">Reflex</option>
+    </select>
+
+    <label for="precio">Precio máximo:</label>
+    <input type="number" id="precio" name="precio" min="1">
+
+    <input type="submit" value="Buscar">
+</form>
