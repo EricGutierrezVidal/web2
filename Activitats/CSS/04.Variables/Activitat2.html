@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rectángulo con Variables</title>
+    <style>
+    
+        .rectangulo {
+            --altura: 50px; 
+            width: calc(var(--altura) * 2);
+            height: var(--altura);
+            background-color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="rectangulo"></div>
+</body>
+</html>

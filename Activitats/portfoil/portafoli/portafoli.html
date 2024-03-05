@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portafoli</title>
+    <style>
+        body {
+            font-family: 'Georgia', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            transition: background-color 0.5s;
+            position: relative;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 1em;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            display: flex;
+        }
+
+        nav ul li {
+            margin-right: 15px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: white;
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        .imatge1 {
+            width: 600px;
+            margin-right: 20px;
+            float: left;
+        }
+
+        .welcome-text {
+            overflow: hidden;
+        }
+
+        h2 {
+            font-size: 2em;
+            font-weight: bold;
+            color: #000408;
+            margin-bottom: 10px;
+            font-family: 'Cursive', sans-serif;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 0.2em;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            font-size: 0.8em;
+        }
+
+        .theme-button {
+            background-color: #242323;
+            color: white;
+            padding: 0.5em 1em;
+            border: none;
+            cursor: pointer;
+            position: fixed;
+            top: 10px;
+            right:10px;
+        }
+
+        
+        .info-box {
+            cursor: pointer;
+            transition: background-color 0.3s;
+            position: relative;
+        }
+
+        .expandable-content {
+            display: none;
+            margin-top: 10px;
+            overflow: hidden;
+            transition: max-height 0.3s;
+        }
+
+        .info-box:hover .expandable-content {
+            display: block;
+            max-height: 500px; 
+        }
+
+        .dark-theme {
+            background-color: #333;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>PORTAFOLI ERIC</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Inici</a></li>
+                <li><a href="activitats.html">Activitats CSS i HTML</a></li>
+                <li><a href="informacio.html">Informació </a></li>
+                <li><a href="contactes.html">Contacte</a></li>
+                <li><a href="wireframes.html">Wireframes</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section>
+            <h2>HOLA, SOC L'ERIC GUTIERREZ</h2>
+            <img class="imatge1" src="https://mail.google.com/mail/u/0?ui=2&ik=1155575a2a&attid=0.1&permmsgid=msg-a:r-847014455556382518&th=18d54981d429ba9e&view=fimg&fur=ip&sz=s0-l75-ft&attbid=ANGjdJ9-5fIuX1bMgeFW_VhxmrHQ5lVplRv9uMSJ-CBL8OCuVfk9dQiAKqUdBszanrrRqAf-IwOSJJhKiIU6yBgQAWU-RlNxTnhg5nTEqmrQwDod9YbGW0Bg_UUStro&disp=emb&realattid=18d5497d9cec4cf85ec1">
+            <div class="welcome-text">
+                <h2>Soc l'Eric i aquest és el meu portafoli</h2>
+                <p>Soc programador i estudiant de DAM</p>
+            </div>
+            <div class="info-box">
+                <h5>Feu clic aqui baix 👇</h5>
+                <h3>Breu introducció</h3>
+                <div class="expandable-content">
+                    <p>Hola, sóc l'Eric Gutierrez, un estudiant apassionat de l'informàtica que actualment està
+                        cursant el cicle superior de DAM (Desenvolupament d'Aplicacions Multiplataforma). On estic
+                        adquirint coneixements especialitzats en el disseny, implementació i manteniment
+                        d'aplicacions que poden funcionar en diferents dispositius i sistemes operatius ...
+                    </p>
+                    <p>
+                        La meva formació inclou l'aprenentatge de llenguatges de programació com Java, , així com
+                        l'ús de frameworks i eines modernes per garantir el rendiment més òptim en diverses
+                        plataformes. Estic emocionat per explorar les últimes tecnologies mòbils i webs, i
+                        aplicar-les de manera pràctica en els meus projectes.
+                    </p>
+                    <p>
+                        A més de les meves habilitats tècniques, em destaco per la meva creativitat i
+                        enfocament col·laboratiu. Estic compromès a seguir aprenent i evolucionant en aquest camp
+                        dinàmic, amb l'objectiu de contribuir al desenvolupament de solucions innovadores i
+                        eficients que millorin l'experiència digital dels usuaris. Estic emocionat pel que el futur
+                        em depara en aquest apassionant viatge del desenvolupament d'aplicacions multiplataforma!
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <img class="imatge2" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMR1K25Oi9-JaTQ7Q5S2hjgZrqTVyfhafkdw&usqp=CAU">
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Portafoli</p>
+    </footer>
+
+    <button class="theme-button" onclick="toggleTheme()">Canviar tema</button>
+</body>
+</html>
+
