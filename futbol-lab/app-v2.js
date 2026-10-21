@@ -7,8 +7,6 @@ const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const SOURCE="https://site.api.espn.com/apis/site/v2/sports/soccer/";
 let upcoming=[],past=[],allMatches=[],selected=null,probs=[0,0,0],leagueId="uefa.champions";
 let dataMode="real",modelType="manual",leagueLabel="Champions League",loadedAt=null,loadingId=0;
-let records=[];try{records=JSON.parse(localStorage.getItem("futbollab_records")||"[]");if(!Array.isArray(records))records=[]}catch{records=[]}
-function persist(){try{localStorage.setItem("futbollab_records",JSON.stringify(records))}catch(e){console.warn("LocalStorage no disponible",e)}ledger()}
 function scoreNum(raw){if(raw==null||raw==="")return null;const v=typeof raw==="object"?(raw.value??raw.displayValue):raw;return v===""||v==null||!Number.isFinite(Number(v))?null:Number(v)}
 function normalizeESPN(e){
  const comp=e.competitions?.[0],cs=comp?.competitors;
@@ -274,27 +272,8 @@ function calculate(){
  $("ev").className="value "+(ev>=0?"positive":"negative");
  $("breakEven").textContent=odd>1?"Quota: probabilitat d'equilibri "+pct(1/odd)+". "+(modelType==="manual"?"AVÍS: probabilitats basades en un escenari manual.":"AVÍS: el model és experimental i pot errar."):"Cal una quota major que 1.";
 }
-function ledger(){
- $("nBets").textContent=records.length;
- const balance=records.reduce((sum,r)=>sum+(r.result==="win"?r.stake*(r.odd-1):r.result==="lose"?-r.stake:0),0);
- $("balance").textContent=money(balance);$("balance").className=balance>=0?"positive":"negative";
- $("ledger").innerHTML=records.length?records.slice().reverse().map((r,idx)=>{
-  const i=records.length-idx-1;
-  return '<tr><td>'+esc(r.match)+'</td><td>'+esc(r.market)+'</td><td>'+Number(r.odd).toFixed(2)+'</td><td>'+money(r.stake)+'</td><td>'+esc(({pending:"Pendent",win:"Encert",lose:"Fallada"})[r.result]??"Pendent")+'</td><td><select class="input resolution" data-index="'+i+'" aria-label="Resoldre simulació"><option value="pending" '+(r.result==="pending"?"selected":"")+'>Pendent</option><option value="win" '+(r.result==="win"?"selected":"")+'>Encert</option><option value="lose" '+(r.result==="lose"?"selected":"")+'>Fallada</option></select></td></tr>';
- }).join(""):'<tr><td colspan="6" class="muted">Encara no hi ha simulacions.</td></tr>';
- document.querySelectorAll(".resolution").forEach(s=>s.addEventListener("change",()=>{records[Number(s.dataset.index)].result=s.value;persist()}));
-}
-$("save").onclick=()=>{
- const stake=Number($("stake").value),bank=Number($("bankroll").value),odd=Number($("odd").value);
- if(!selected)return alert("Selecciona un partit abans.");
- if(!(stake>0&&bank>0&&stake<=bank&&stake<=20&&odd>1))return alert("Revisa import, límit i quota. Import virtual màxim: 20 €.");
- const open=records.filter(x=>x.result==="pending").reduce((s,x)=>s+x.stake,0);
- if(open+stake>bank)return alert("Superaries el límit de simulacions pendents.");
- records.push({match:selected.strHomeTeam+" - "+selected.strAwayTeam,market:$("market").selectedOptions[0].textContent,stake,odd,result:"pending",date:new Date().toISOString(),model:modelType});persist();
-};
-$("clear").onclick=()=>{if(confirm("Vols esborrar totes les simulacions locals?")){records=[];persist()}};
 $("export").onclick=()=>{
- const blob=new Blob([JSON.stringify(records,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="futbollab-simulacions.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const blob=new Blob([JSON.stringify(virtualBets,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="futbollab-cupon-virtual.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 $("file").onchange=async ev=>{
  try{
@@ -313,7 +292,7 @@ $("search").oninput=()=>{expanded=false;renderMatches()};
 $("autoBtn").onclick=()=>{const e=autoEstimate();if(!e||e.reason)return;modelType="automatic";$("homeGoals").value=e.a.toFixed(2);$("awayGoals").value=e.b.toFixed(2);$("modelTag").textContent="Dades històriques · experimental";$("modelNote").textContent="Estimació automàtica experimental, basada en gols reals: "+e.nH+" i "+e.nA+" partits dels equips, "+e.pool+" de la competició. No inclou xG ni baixes.";calculate()};
 ["homeGoals","awayGoals"].forEach(id=>$(id).addEventListener("input",()=>{modelType="manual";$("modelTag").textContent="Escenari manual";calculate()}));
 ["market","odd"].forEach(id=>$(id).addEventListener("input",calculate));
-ledger();calculate();load();
+calculate();load();
 
 
 /* v3: virtual sportsbook. Odds must be copied/imported by the user; never claimed live. */
@@ -337,6 +316,10 @@ function renderVirtual(){
  const list=$("betSlip");if(!list)return;
  const combined=slip.reduce((v,l)=>v*l.odd,1),stake=Number($("virtualStake").value)||0,free=availableVirtual();
  $("virtualBalance").textContent=money(free);
+ $("nBets").textContent=virtualBets.length;
+ const profit=virtualBets.reduce((total,b)=>total+(b.status==="win"?b.payout-b.stake:b.status==="lose"?-b.stake:0),0);
+ $("balance").textContent=money(profit);
+ $("balance").className=profit>=0?"positive":"negative";
  $("couponOdds").textContent=slip.length?combined.toFixed(2):"—";
  $("couponReturn").textContent=slip.length?money(stake*combined):"—";
  list.innerHTML=slip.length?slip.map((l,i)=>'<div class="betitem"><div><b>'+esc(l.match)+'</b><small>'+["1 — Local","X — Empat","2 — Visitant"][l.choice]+' · quota '+l.odd.toFixed(2)+'<br>'+esc(l.source)+' · '+new Date(l.at).toLocaleString("ca-ES")+'</small></div><button class="btn secondary" data-remove="'+i+'" aria-label="Treure selecció">×</button></div>').join(""):'<div class="empty">Cupó buit. Selecciona un partit i prem «Afegir al cupó».</div>';
