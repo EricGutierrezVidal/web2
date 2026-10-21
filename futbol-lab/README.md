@@ -1,25 +1,50 @@
-# FutbolLab v2 — Champions League i LaLiga
+# FutbolLab v4 — Champions i LaLiga (2026/27)
 
-Dashboard de futbol en català, sense servidor ni dependències. Publicat a GitHub Pages a https://ericgutierrezvidal.github.io/web2/.
+[Obrir la web](https://ericgutierrezvidal.github.io/web2/) · [GitHub Actions](https://github.com/EricGutierrezVidal/web2/actions)
+
+Web independent d'anàlisi de futbol i simulació d'apostes **amb diners 100% virtuals**. No té relació comercial amb Bet365.
+
+## Dades reals i sense ESPN/CORS al navegador
+
+Les dades de partits i resultats de 2026/27 s'incorporen des de [open-matchday](https://github.com/oladeeayo/open-matchday), projecte informatiu no comercial que agrega diferents fonts obertes de partits. Només es publiquen dues competicions:
+
+- `data/champions.json`: UEFA Champions League, incloent resultats i pròxims partits.
+- `data/laliga.json`: LaLiga d'Espanya, incloent resultats i pròxims partits.
+
+La web llegeix **fitxers locals a GitHub Pages** en comptes de fer peticions directes a ESPN des del navegador. Mostra la data de generació del proveïdor. No es fan passar dades antigues per marcadors en directe.
+
+L'acció `.github/workflows/push.yml`:
+1. Comprova sintaxi de JavaScript i Python.
+2. Executa `scripts/sync_data.py` contra els fitxers CSV públics (4, 10, 16 i 22 UTC cada dia; GitHub pot retardar execucions programades).
+3. Conserva l'última còpia disponible si falla l'actualització, sense sobreescriure-la amb zeros.
+4. Valida els fitxers amb `tests/smoke.mjs`.
+5. Publica únicament `futbol-lab/` a la branca `gh-pages`.
 
 ## Funcionalitats
-- Només UEFA Champions League i LaLiga d'Espanya.
-- Calendari de la temporada i resultats des de l'API pública no oficial d'ESPN (si està disponible).
-- Comparador visual dels últims 10 partits **de la mateixa competició** dels dos equips, amb V/E/D, GF, GC i mitjanes de gols.
-- Gràfic de gols dels partits més recents.
-- Model experimental de Poisson de gols i probabilitats 1X2: s'autoemplena només amb mínim de 5 partits per equip i 20 resultats de la competició. Estimació basada en gols marcats i encaixats, amb suavitzat; **no és xG i no està validada predictivament**.
-- Entrada de quotes manuals, probabilitat implícita i valor esperat condicional al model.
-- Simulacions de fins a 20 € i historial local editable (no permet apostar diners reals).
-- Importació JSON de partits i exportació de simulacions.
-- Caché local de dades (15 minuts); en cas de fallada, es marca clarament la còpia desada.
 
-## Dades i limitacions
-La font és https://site.api.espn.com/apis/site/v2/sports/soccer/{uefa.champions|esp.1}/scoreboard (API **no oficial**, sense garantia de continuïtat, CORS, actualització ni cobertura). Per recuperar molts partits s'utilitza un rang de temporada, amb fallback de consultes per trams quan la resposta és curta. El servei no ofereix quotes de cases d'apostes, xG verificat, lesions ni alineacions; aquests camps no s'inventen.
+- Llista de pròxims partits amb hora local, filtre per equip i mercat 1/X/2.
+- Resultats confirmats amb gràfic de gols.
+- Forma dels últims deu partits de cada equip, marcadors i goles a favor/en contra.
+- Model **experimental** de Poisson només si les dades ho permeten (mínim 5 partits per equip i 20 resultats); usa gols reals, **no** xG, i no està validat per predir beneficis.
+- Editor de quotes 1/X/2: l'usuari les copia de Bet365 o altres webs i es guarda la font declarada, hora i valor al navegador.
+- Cupó combinat fins a 8 seleccions, saldo inicial **20 € virtuals**, retorn potencial i liquidació basada en marcadors confirmats, sense ingressos ni retirades.
+- Importació JSON de partits i exportació JSON de cupons virtuals.
 
-Les probabilitats no són garanties. **No et refiïs d'una aparent quota amb valor si el model no ha estat calibrat i validat amb proves fora de mostra.**
+## Quotes reals de Bet365
 
-## Desenvolupament i desplegament
-La web està a `futbol-lab/index.html` i `futbol-lab/app-v2.js`. Obre `index.html` amb Live Server o un servidor HTTP local. El workflow `.github/workflows/push.yml` executa `node --check` i publica només la carpeta `futbol-lab` a la branca `gh-pages` quan hi ha canvis a `main`.
+**NO hi ha integració directa ni quotes en temps real.** Bet365 no proporciona una API pública. Per mostrar quotes actuals amb verificació i llicències, es necessitaria una clau d'un proveïdor autoritzat de quotes, com The Odds API o Odds-API.io, amb cobertura real de Bet365 i el cost que correspongui. Mai posis claus privades al JavaScript públic de GitHub Pages: s'han de guardar com a secrets i fer consultes al servidor.
 
-## Format d'importació
-Array JSON amb `strHomeTeam`, `strAwayTeam`, `dateEvent` (YYYY-MM-DD) o `dateISO`; per a resultats finalitzats, `intHomeScore` i `intAwayScore`. Es pot incloure `idHomeTeam`, `idAwayTeam`, `idEvent` i `strTime`.
+La pissarra mostra xifres 1/X/2 només després d'introduir-les manualment; no s'inventen ni s'etiqueten com a directes.
+
+## Limitacions
+
+- La font pot arribar tard i tenir partits ajornats: comprova la data i la font.
+- Les hores de les jornades llunyanes poden ser provisionals i apareixeran com «hora per confirmar».
+- Els cupons estan guardats al `localStorage` del navegador (no se sincronitzen entre dispositius).
+- Les apostes simulades no són recomanacions. El model no ofereix cap garantia de guany.
+- No s'efectuen transaccions reals ni hi ha connexió a comptes d'apostes.
+
+## Desenvolupament local
+
+Executa un servidor estàtic a la carpeta `futbol-lab`, per exemple `python -m http.server 8000`, i obre http://localhost:8000/. No cal instal·lar dependències.
+
