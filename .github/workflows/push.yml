@@ -1,18 +1,25 @@
-name: Build and Deploy
-on: [push]
+name: Deploy FutbolLab
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'futbol-lab/**'
+      - '.github/workflows/push.yml'
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
   build-and-deploy:
-    concurrency: ci-${{ github.ref }} # Recommended if you intend to make multiple deployments in quick succession.
+    concurrency: ci-futbollab
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Deploy
+        uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check futbol-lab/app-v2.js
+      - name: Deploy FutbolLab
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: . # The folder the action should deploy.
-          config: baseUrl=/
+          folder: futbol-lab
+          clean: true
