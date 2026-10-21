@@ -42,28 +42,57 @@ function plusDay(yyyymmdd,delta){
 }
 async function fetchRange(id,from,to){
  const path=SOURCE+encodeURIComponent(id)+"/scoreboard?dates="+from+"-"+to+"&limit=500";
- const response=await fetch(path,{signal:AbortSignal.timeout(16000),cache:"no-store"});
+ const response=await fetch(path,{signal:AbortSignal.timeout(10000),cache:"no-store"});
  if(!response.ok)throw Error("ESPN HTTP "+response.status);
  const json=await response.json();
- if(!Array.isArray(json.events))throw Error("Resposta ESPN sense esdeveniments");
+ if(!Array.isArray(json.events))throw Error("ESPN: resposta incompleta");
  return json.events.map(normalizeESPN).filter(Boolean);
 }
+function fromSportsDB(e){
+ if(!e||!e.strHomeTeam||!e.strAwayTeam||!e.dateEvent)return null;
+ const hs=scoreNum(e.intHomeScore),as=scoreNum(e.intAwayScore);
+ const iso=e.strTimestamp||e.dateEvent+"T"+(e.strTime||"12:00:00")+"Z";
+ return {idEvent:"tdb-"+String(e.idEvent||e.dateEvent+e.strHomeTeam),idHomeTeam:String(e.idHomeTeam||e.strHomeTeam),idAwayTeam:String(e.idAwayTeam||e.strAwayTeam),
+ strHomeTeam:e.strHomeTeam,strAwayTeam:e.strAwayTeam,dateISO:iso,intHomeScore:hs,intAwayScore:as,
+ played:hs!==null&&as!==null,live:false,status:e.strStatus||"",source:"TheSportsDB"};
+}
+async function fetchSportsDB(id){
+ const dbid=id==="esp.1"?"4335":"4480";
+ const year=new Date().getUTCFullYear()-(new Date().getUTCMonth()<7?1:0);
+ const url="https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id="+dbid+"&s="+year+"-"+(year+1);
+ const response=await fetch(url,{signal:AbortSignal.timeout(11000),cache:"no-store"});
+ if(!response.ok)throw Error("TheSportsDB HTTP "+response.status);
+ const data=await response.json();
+ if(!Array.isArray(data.events)||!data.events.length)throw Error("TheSportsDB: temporada sense dades");
+ return data.events.map(fromSportsDB).filter(Boolean).sort((a,b)=>ms(a)-ms(b));
+}
 async function fetchLeague(id){
- const bounds=seasonBounds();
- let events=[],reasons=[];
- try{events=await fetchRange(id,bounds[0],bounds[1])}catch(e){reasons.push(e.message)}
- // Si la resposta és curta, fem consultes més petites per superar límits de paginació.
- if(events.length<20){
-  const spans=[];let cur=bounds[0];
-  while(cur<=bounds[1]){const next=plusDay(cur,30);spans.push([cur,next>bounds[1]?bounds[1]:next]);cur=plusDay(next,1)}
-  const portions=await Promise.allSettled(spans.map(s=>fetchRange(id,s[0],s[1])));
-  for(const part of portions){if(part.status==="fulfilled")events.push(...part.value);else reasons.push(part.reason?.message??"Error de xarxa")}
+ const bounds=seasonBounds();let events=[],errors=[];
+ // Primer intent: temporada a TheSportsDB; després ESPN per dates més acotades.
+ try{events=await fetchSportsDB(id)}catch(e){errors.push(e.message)}
+ if(events.length>=25)return {events,source:"TheSportsDB · temporada"};
+ try{
+  const espn=await fetchRange(id,bounds[0],bounds[1]);
+  events.push(...espn);
+ }catch(e){errors.push(e.message)}
+ // Fallback: setmanes; no confiïs en un únic range llarg.
+ if(events.length<25){
+  const now=new Date(),month=now.toISOString().slice(0,7).replace("-","");
+  const windows=[];
+  for(let shift=-3;shift<=4;shift++){
+   const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+shift,1));
+   const start=d.toISOString().slice(0,10).replace(/-/g,"");
+   const end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10).replace(/-/g,"");
+   windows.push([start,end]);
+  }
+  const chunks=await Promise.allSettled(windows.map(w=>fetchRange(id,w[0],w[1])));
+  for(const c of chunks)if(c.status==="fulfilled")events.push(...c.value);
  }
- const unique=new Map();
- for(const e of events)unique.set(e.idEvent,e);
- const merged=[...unique.values()].sort((a,b)=>ms(a)-ms(b));
- if(!merged.length)throw Error(reasons[0]||"No hi ha partits disponibles");
- return merged;
+ const seen=new Map();
+ for(const e of events)seen.set(e.dateISO+"|"+e.strHomeTeam+"|"+e.strAwayTeam,e);
+ const merged=[...seen.values()].sort((a,b)=>ms(a)-ms(b));
+ if(!merged.length)throw Error(errors.join("; ")||"Fonts sense dades");
+ return {events:merged,source:"TheSportsDB / ESPN · cobertura variable"};
 }
 function saveCache(id,events){try{localStorage.setItem("futbollab_cache_"+id,JSON.stringify({saved:Date.now(),events}))}catch(e){}}
 function cached(id){try{const c=JSON.parse(localStorage.getItem("futbollab_cache_"+id)||"null");return c&&Array.isArray(c.events)?c:null}catch{return null}}
@@ -93,9 +122,10 @@ async function load(force=false){
   btn.disabled=false;return;
  }
  try{
-  const data=await fetchLeague(id);
+  const result=await fetchLeague(id);
   if(token!==loadingId)return;
-  adopt(data,"ESPN · dades consultades");
+  const data=result.events;
+  adopt(data,result.source);
   saveCache(id,data);loadedAt=new Date();
   $("message").textContent=data.length+" partits trobats de "+leagueLabel+" (temporada "+seasonBounds()[0].slice(0,4)+"/"+seasonBounds()[1].slice(0,4)+") · actualitzat "+loadedAt.toLocaleString("ca-ES")+".";
  }catch(e){
@@ -264,3 +294,62 @@ $("autoBtn").onclick=()=>{const e=autoEstimate();if(!e||e.reason)return;modelTyp
 ["homeGoals","awayGoals"].forEach(id=>$(id).addEventListener("input",()=>{modelType="manual";$("modelTag").textContent="Escenari manual";calculate()}));
 ["market","odd"].forEach(id=>$(id).addEventListener("input",calculate));
 ledger();calculate();load();
+
+
+/* v3: virtual sportsbook. Odds must be copied/imported by the user; never claimed live. */
+let slip=[];let virtualBets=[];try{virtualBets=JSON.parse(localStorage.getItem("futbollab_v3_bets")||"[]");if(!Array.isArray(virtualBets))virtualBets=[]}catch{virtualBets=[]}
+function availableVirtual(){return virtualBets.reduce((sum,b)=>sum-b.stake+(b.status==="win"?b.payout:b.status==="void"?b.stake:0),20)}
+function saveVirtual(){try{localStorage.setItem("futbollab_v3_bets",JSON.stringify(virtualBets))}catch(e){}renderVirtual()}
+function makeLeg(){
+ if(!selected)return alert("Tria un partit de la llista.");
+ const odd=Number($("odd").value),market=Number($("market").value);
+ if(!Number.isFinite(odd)||odd<=1||odd>1000)return alert("La quota ha de ser superior a 1.");
+ if(slip.some(x=>x.idEvent===selected.idEvent))return alert("Només una selecció per partit en una combinada.");
+ if(slip.length>=8)return alert("Màxim de 8 seleccions per cupó.");
+ slip.push({idEvent:selected.idEvent,match:selected.strHomeTeam+" — "+selected.strAwayTeam,choice:market,odd,source:"Quota escrita manualment (comprova Bet365)",at:new Date().toISOString(),dateISO:selected.dateISO});
+ renderVirtual();
+}
+function clearSlip(){slip=[];renderVirtual()}
+function renderVirtual(){
+ const list=$("betSlip");if(!list)return;
+ const combined=slip.reduce((v,l)=>v*l.odd,1),stake=Number($("virtualStake").value)||0,free=availableVirtual();
+ $("virtualBalance").textContent=money(free);
+ $("couponOdds").textContent=slip.length?combined.toFixed(2):"—";
+ $("couponReturn").textContent=slip.length?money(stake*combined):"—";
+ list.innerHTML=slip.length?slip.map((l,i)=>'<div class="betitem"><div><b>'+esc(l.match)+'</b><small>'+["1 — Local","X — Empat","2 — Visitant"][l.choice]+' · quota '+l.odd.toFixed(2)+'<br>'+esc(l.source)+' · '+new Date(l.at).toLocaleString("ca-ES")+'</small></div><button class="btn secondary" data-remove="'+i+'" aria-label="Treure selecció">×</button></div>').join(""):'<div class="empty">Cupó buit. Selecciona un partit i prem «Afegir al cupó».</div>';
+ list.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>{slip.splice(Number(b.dataset.remove),1);renderVirtual()});
+ const box=$("virtualHistory");
+ box.innerHTML=virtualBets.length?virtualBets.slice().reverse().map(b=>
+ '<div class="betitem"><div><b>'+b.legs.length+' selecció(ns) · '+money(b.stake)+' · quota '+b.totalOdds.toFixed(2)+'</b><small>'+esc(b.legs.map(l=>l.match+" ("+["1","X","2"][l.choice]+")").join(" + "))+'</small><small> '+esc(({pending:"Pendent",win:"Encertada",lose:"Perduda",void:"Anul·lada"})[b.status])+' · retorn '+money(b.status==="win"?b.payout:b.status==="void"?b.stake:0)+'</small></div></div>').join(""):'<small>Encara no hi ha cupons simulats.</small>';
+}
+function placeVirtual(){
+ const stake=Number($("virtualStake").value),free=availableVirtual();
+ if(!slip.length)return alert("Afegeix seleccions al cupó.");
+ if(!(stake>0&&Number.isFinite(stake)&&stake<=free))return alert("Import virtual invàlid o saldo insuficient.");
+ const odds=slip.reduce((p,l)=>p*l.odd,1);
+ virtualBets.push({id:String(Date.now())+"-"+virtualBets.length,legs:slip.map(x=>({...x})),stake,totalOdds:odds,payout:stake*odds,status:"pending",createdAt:new Date().toISOString()});
+ clearSlip();saveVirtual();
+}
+function settleVirtual(){
+ let changed=0,unresolved=0;
+ for(const bet of virtualBets){
+  if(bet.status!=="pending")continue;
+  let pending=false,lost=false;
+  for(const leg of bet.legs){
+   const game=allMatches.find(x=>x.idEvent===leg.idEvent||x.strHomeTeam+" — "+x.strAwayTeam===leg.match);
+   if(!game?.played){pending=true;continue}
+   const actual=game.intHomeScore>game.intAwayScore?0:game.intHomeScore===game.intAwayScore?1:2;
+   if(actual!==leg.choice)lost=true;
+  }
+  if(lost){bet.status="lose";changed++}else if(!pending){bet.status="win";changed++}else unresolved++;
+ }
+ saveVirtual();
+ alert(changed+" cupó(ns) resolts amb els resultats disponibles; "+unresolved+" pendents. Sense inventar marcadors.");
+}
+$("addSlip").onclick=makeLeg;
+$("clearSlip").onclick=clearSlip;
+$("virtualStake").oninput=renderVirtual;
+$("placeVirtual").onclick=placeVirtual;
+$("settleVirtual").onclick=settleVirtual;
+$("resetVirtual").onclick=()=>{if(confirm("Reiniciar el saldo virtual a 20 €? Es perdrà l'historial de cupons.")){virtualBets=[];slip=[];saveVirtual()}};
+renderVirtual();
