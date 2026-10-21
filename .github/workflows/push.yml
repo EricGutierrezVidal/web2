@@ -23,6 +23,8 @@ jobs:
         run: python -m py_compile futbol-lab/scripts/sync_data.py
       - name: Refresh verified match data (keep fallback if offline)
         run: python futbol-lab/scripts/sync_data.py
+      - name: Validate schedules and interface wiring
+        run: node futbol-lab/tests/smoke.mjs
       - name: Deploy only FutbolLab
         uses: JamesIves/github-pages-deploy-action@v4
         with:
