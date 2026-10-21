@@ -67,35 +67,20 @@ async function fetchSportsDB(id){
  return data.events.map(fromSportsDB).filter(Boolean).sort((a,b)=>ms(a)-ms(b));
 }
 async function fetchLeague(id){
- const bounds=seasonBounds();let events=[],errors=[];
- // Primer intent: temporada a TheSportsDB; després ESPN per dates més acotades.
- try{events=await fetchSportsDB(id)}catch(e){errors.push(e.message)}
- if(events.length>=25)return {events,source:"TheSportsDB · temporada"};
- try{
-  const espn=await fetchRange(id,bounds[0],bounds[1]);
-  events.push(...espn);
- }catch(e){errors.push(e.message)}
- // Fallback: setmanes; no confiïs en un únic range llarg.
- if(events.length<25){
-  const now=new Date(),month=now.toISOString().slice(0,7).replace("-","");
-  const windows=[];
-  for(let shift=-3;shift<=4;shift++){
-   const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+shift,1));
-   const start=d.toISOString().slice(0,10).replace(/-/g,"");
-   const end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10).replace(/-/g,"");
-   windows.push([start,end]);
-  }
-  const chunks=await Promise.allSettled(windows.map(w=>fetchRange(id,w[0],w[1])));
-  for(const c of chunks)if(c.status==="fulfilled")events.push(...c.value);
- }
- const seen=new Map();
- for(const e of events)seen.set(e.dateISO+"|"+e.strHomeTeam+"|"+e.strAwayTeam,e);
- const merged=[...seen.values()].sort((a,b)=>ms(a)-ms(b));
- if(!merged.length)throw Error(errors.join("; ")||"Fonts sense dades");
- return {events:merged,source:"TheSportsDB / ESPN · cobertura variable"};
+ const name=id==="esp.1"?"laliga":"champions";
+ const url="data/"+name+".json?updated="+Date.now();
+ const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(12000)});
+ if(!response.ok)throw Error("Fitxer de dades HTTP "+response.status);
+ const json=await response.json();
+ if(json.version!==1||json.league!==id||!Array.isArray(json.events)||json.events.length<30)throw Error("Fitxer incomplet o amb format incorrecte.");
+ const events=json.events.filter(e=>e.idEvent&&e.strHomeTeam&&e.strAwayTeam&&Number.isFinite(new Date(e.dateISO).getTime())&&
+ (!e.played||Number.isFinite(Number(e.intHomeScore))&&Number.isFinite(Number(e.intAwayScore))));
+ if(events.length<30)throw Error("Les dades no han superat la validació.");
+ const generated=json.source_generated_utc||json.records_generated_utc;
+ return {events,source:"Dades verificables · open-matchday",generated};
 }
-function saveCache(id,events){try{localStorage.setItem("futbollab_cache_"+id,JSON.stringify({saved:Date.now(),events}))}catch(e){}}
-function cached(id){try{const c=JSON.parse(localStorage.getItem("futbollab_cache_"+id)||"null");return c&&Array.isArray(c.events)?c:null}catch{return null}}
+function saveCache(id,events){try{localStorage.setItem("futbollab_v4_cache_"+id,JSON.stringify({saved:Date.now(),events}))}catch(e){}}
+function cached(id){try{const c=JSON.parse(localStorage.getItem("futbollab_v4_cache_"+id)||"null");return c&&Array.isArray(c.events)?c:null}catch{return null}}
 function adopt(events,origin){
  allMatches=events.filter(e=>Number.isFinite(ms(e))).sort((a,b)=>ms(a)-ms(b));
  const now=Date.now();
@@ -114,28 +99,25 @@ function adopt(events,origin){
 async function load(force=false){
  const id=$("league").value,token=++loadingId,btn=$("refresh");
  leagueId=id;leagueLabel=id==="esp.1"?"LaLiga":"Champions League";
- btn.disabled=true;$("message").textContent="Carregant calendari i resultats de "+leagueLabel+"...";
- let cache=cached(id);
- if(!force&&cache&&Date.now()-cache.saved<15*60000){
-  adopt(cache.events,"ESPN · memòria cau");
-  $("message").textContent="Dades desades a les "+new Date(cache.saved).toLocaleString("ca-ES")+". Prem Actualitzar per renovar-les.";
-  btn.disabled=false;return;
- }
+ btn.disabled=true;$("message").textContent="Carregant "+leagueLabel+" des dels fitxers del projecte...";
+ const cache=cached(id);
  try{
   const result=await fetchLeague(id);
   if(token!==loadingId)return;
-  const data=result.events;
-  adopt(data,result.source);
-  saveCache(id,data);loadedAt=new Date();
-  $("message").textContent=data.length+" partits trobats de "+leagueLabel+" (temporada "+seasonBounds()[0].slice(0,4)+"/"+seasonBounds()[1].slice(0,4)+") · actualitzat "+loadedAt.toLocaleString("ca-ES")+".";
+  const data=result.events;adopt(data,result.source);saveCache(id,data);
+  loadedAt=result.generated?new Date(result.generated):null;
+  const age=loadedAt?(Date.now()-loadedAt.getTime())/3600000:NaN;
+  const stale=Number.isFinite(age)&&age>72;
+  $("message").textContent=data.length+" partits a "+leagueLabel+" (temporada 2026/27). Font: open-matchday · dades de "+(loadedAt?loadedAt.toLocaleString("ca-ES",{dateStyle:"short",timeStyle:"short"}):"data no indicada")+(stale?" · ATENCIÓ: més de 72 h sense actualitzar.":"")+".";
+  $("source").textContent=stale?"Dades antigues · comprova-les":"open-matchday · dades reals";
  }catch(e){
   if(token!==loadingId)return;
   if(cache&&cache.events.length){
-   adopt(cache.events,"ESPN · còpia local");
-   $("message").textContent="No s'ha pogut actualitzar ("+e.message+"). Mostrant la còpia guardada del "+new Date(cache.saved).toLocaleString("ca-ES")+".";
+   adopt(cache.events,"Còpia del navegador · pot ser antiga");
+   $("message").textContent="No s'ha pogut descarregar l'última versió ("+e.message+"). Mostrant dades guardades del "+new Date(cache.saved).toLocaleString("ca-ES")+".";
   }else{
-   adopt([],"ESPN · no disponible");
-   $("message").textContent="No s'han pogut recuperar dades: "+e.message+". Torna-ho a provar o importa un JSON.";
+   adopt([],"Dades no disponibles");
+   $("message").textContent="Error en carregar els fitxers ("+e.message+"). Revisa GitHub Pages i prova Actualitzar.";
   }
  }
  btn.disabled=false;
