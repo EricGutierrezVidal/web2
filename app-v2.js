@@ -127,13 +127,50 @@ function filteredUpcoming(){
  return upcoming.filter(e=>(e.strHomeTeam+" "+e.strAwayTeam).toLocaleLowerCase("ca").includes(q));
 }
 let expanded=false;
+
+let manualPrices={};
+try{manualPrices=JSON.parse(localStorage.getItem("futbollab_manual_prices_v1")||"{}");if(!manualPrices||typeof manualPrices!=="object"||Array.isArray(manualPrices))manualPrices={}}catch{manualPrices={}}
+function priceKey(g){return leagueId+"|"+g.idEvent}
+function currentPrices(g){return manualPrices[priceKey(g)]||null}
+function storePrices(){
+ if(!selected)return alert("Selecciona un partit.");
+ const prices=["price1","priceX","price2"].map(id=>Number($(id).value));
+ if(!prices.every(n=>Number.isFinite(n)&&n>1&&n<1001))return alert("Introdueix tres quotes decimals vàlides (superiors a 1).");
+ const book=$("bookName").value;
+ const snapshot={prices,book,at:new Date().toISOString(),manual:true};
+ manualPrices[priceKey(selected)]=snapshot;
+ try{localStorage.setItem("futbollab_manual_prices_v1",JSON.stringify(manualPrices))}catch(e){}
+ $("priceStatus").textContent="Quotes introduïdes manualment · "+new Date(snapshot.at).toLocaleString("ca-ES")+". No estan verificades ni sincronitzades.";
+ renderMatches();
+}
+function updatePricesPanel(){
+ const b=selected?currentPrices(selected):null;
+ ["price1","priceX","price2"].forEach((id,i)=>$(id).value=b?b.prices[i].toFixed(2):"");
+ if(b){
+  $("bookName").value=b.book;
+  $("priceStatus").textContent="Quotes introduïdes manualment · "+new Date(b.at).toLocaleString("ca-ES")+" · "+b.book+".";
+ }else $("priceStatus").textContent="Quotes encara no introduïdes. Copia 1/X/2 de la font que consultis.";
+}
 function renderMatches(){
- const filtered=filteredUpcoming(),max=expanded?filtered.length:32;
- $("matches").innerHTML=filtered.length?filtered.slice(0,max).map(x=>
- '<button class="match '+(selected?.idEvent===x.idEvent?"selected":"")+'" data-id="'+esc(x.idEvent)+'"><div class="match-line"><strong>'+esc(x.strHomeTeam)+' <span style="color:var(--muted)">vs</span> '+esc(x.strAwayTeam)+'</strong><span class="status"><span class="dot"></span>'+esc(x.live?"En joc":"Programat")+'</span></div><span class="date">'+when(x)+'</span></button>'
- ).join("")+(filtered.length>max?'<button class="btn secondary" id="moreMatches" style="width:100%">Mostrar els '+(filtered.length-max)+' partits restants</button>':"")
- :'<div class="empty">No hi ha partits programats amb aquest filtre dins del calendari rebut.</div>';
- document.querySelectorAll(".match[data-id]").forEach(b=>b.addEventListener("click",()=>{selected=upcoming.find(x=>x.idEvent===b.dataset.id);selectMatch();renderMatches()}));
+ const filtered=filteredUpcoming(),max=expanded?filtered.length:30;
+ $("nMatches").textContent=upcoming.length;
+ const items=filtered.slice(0,max);
+ $("matches").innerHTML=items.length?items.map(g=>{
+  const b=currentPrices(g),active=selected?.idEvent===g.idEvent;
+  const markets=b?b.prices.map((od,i)=>'<button class="oddbtn" type="button" data-pick="'+esc(g.idEvent)+'" data-market="'+i+'" title="Quota introduïda manualment · '+esc(b.book)+'"><span>'+["1","X","2"][i]+'</span><b>'+Number(od).toFixed(2)+'</b></button>').join("")
+  :'<button type="button" class="btn secondary pick-open" data-select="'+esc(g.idEvent)+'">Introduir quotes</button>';
+  return '<div class="marketline '+(active?"active":"")+'"><button type="button" class="fixture-select" data-select="'+esc(g.idEvent)+'"><small>'+when(g)+' · J'+esc(g.round??"?")+'</small><b>'+esc(g.strHomeTeam)+'</b><b>'+esc(g.strAwayTeam)+'</b></button><div class="marketodds">'+markets+'</div></div>';
+ }).join("")+(filtered.length>max?'<button class="btn secondary" id="moreMatches" style="width:100%">Mostrar '+(filtered.length-max)+' partits més</button>':"")
+ :'<div class="empty">No hi ha partits programats amb aquest filtre.</div>';
+ document.querySelectorAll("[data-select]").forEach(b=>b.addEventListener("click",()=>{
+  selected=upcoming.find(x=>x.idEvent===b.dataset.select);selectMatch();renderMatches();
+  if(b.classList.contains("pick-open"))$("pricePanel").scrollIntoView({behavior:"smooth",block:"center"});
+ }));
+ document.querySelectorAll("[data-pick]").forEach(b=>b.addEventListener("click",()=>{
+  const g=upcoming.find(x=>x.idEvent===b.dataset.pick);if(!g)return;
+  selected=g;selectMatch();$("market").value=b.dataset.market;
+  const saved=currentPrices(g);$("odd").value=saved.prices[Number(b.dataset.market)].toFixed(2);calculate();makeLeg();renderMatches();
+ }));
  const more=$("moreMatches");if(more)more.onclick=()=>{expanded=true;renderMatches()};
 }
 function renderHistory(){
@@ -204,6 +241,7 @@ function autoEstimate(){
 }
 function selectMatch(){
  if(!selected)return;
+ updatePricesPanel();
  $("pick").textContent=selected.strHomeTeam+" — "+selected.strAwayTeam+" · "+when(selected);
  renderCompare();
  const estimate=autoEstimate();
@@ -288,7 +326,9 @@ function makeLeg(){
  if(!Number.isFinite(odd)||odd<=1||odd>1000)return alert("La quota ha de ser superior a 1.");
  if(slip.some(x=>x.idEvent===selected.idEvent))return alert("Només una selecció per partit en una combinada.");
  if(slip.length>=8)return alert("Màxim de 8 seleccions per cupó.");
- slip.push({idEvent:selected.idEvent,match:selected.strHomeTeam+" — "+selected.strAwayTeam,choice:market,odd,source:"Quota escrita manualment (comprova Bet365)",at:new Date().toISOString(),dateISO:selected.dateISO});
+ const b=currentPrices(selected);
+ const verified=b&&Math.abs(b.prices[market]-odd)<0.001;
+ slip.push({idEvent:selected.idEvent,match:selected.strHomeTeam+" — "+selected.strAwayTeam,choice:market,odd,source:verified?b.book+" · quota introduïda manualment":"Quota escrita manualment · font no verificada",at:new Date().toISOString(),dateISO:selected.dateISO});
  renderVirtual();
 }
 function clearSlip(){slip=[];renderVirtual()}
@@ -335,3 +375,5 @@ $("placeVirtual").onclick=placeVirtual;
 $("settleVirtual").onclick=settleVirtual;
 $("resetVirtual").onclick=()=>{if(confirm("Reiniciar el saldo virtual a 20 €? Es perdrà l'historial de cupons.")){virtualBets=[];slip=[];saveVirtual()}};
 renderVirtual();
+
+$("savePrices").onclick=storePrices;
