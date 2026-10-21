@@ -30,7 +30,7 @@ function normalizeImported(e,i){
  dateISO:iso,intHomeScore:hs,intAwayScore:as,played:hs!==null&&as!==null,live:false,status:"",source:"JSON importat"};
 }
 const ms=e=>new Date(e.dateISO).getTime();
-const when=e=>new Intl.DateTimeFormat("ca-ES",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(e.dateISO));
+const when=e=>e.dateISO.endsWith("T01:00:00Z")?new Intl.DateTimeFormat("ca-ES",{weekday:"short",day:"numeric",month:"short"}).format(new Date(e.dateISO))+" · hora per confirmar":new Intl.DateTimeFormat("ca-ES",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(e.dateISO));
 const dateOnly=e=>new Intl.DateTimeFormat("ca-ES",{day:"2-digit",month:"short"}).format(new Date(e.dateISO));
 function seasonBounds(){
  const now=new Date();const y=now.getUTCFullYear()-(now.getUTCMonth()<6?1:0);
@@ -85,7 +85,7 @@ function adopt(events,origin){
  allMatches=events.filter(e=>Number.isFinite(ms(e))).sort((a,b)=>ms(a)-ms(b));
  const now=Date.now();
  past=allMatches.filter(e=>e.played&&ms(e)<=now+2*86400000).sort((a,b)=>ms(b)-ms(a));
- upcoming=allMatches.filter(e=>!e.played&&ms(e)>now-86400000).sort((a,b)=>ms(a)-ms(b));
+ upcoming=allMatches.filter(e=>!e.played&&ms(e)>now).sort((a,b)=>ms(a)-ms(b));
  selected=null;modelType="manual";
  $("pick").textContent="Selecciona un partit per comparar els equips.";
  $("source").textContent=origin;
@@ -322,6 +322,7 @@ function availableVirtual(){return virtualBets.reduce((sum,b)=>sum-b.stake+(b.st
 function saveVirtual(){try{localStorage.setItem("futbollab_v3_bets",JSON.stringify(virtualBets))}catch(e){}renderVirtual()}
 function makeLeg(){
  if(!selected)return alert("Tria un partit de la llista.");
+ if(ms(selected)<=Date.now())return alert("El partit ja ha començat. No es poden afegir seleccions virtuals un cop iniciat.");
  const odd=Number($("odd").value),market=Number($("market").value);
  if(!Number.isFinite(odd)||odd<=1||odd>1000)return alert("La quota ha de ser superior a 1.");
  if(slip.some(x=>x.idEvent===selected.idEvent))return alert("Només una selecció per partit en una combinada.");
